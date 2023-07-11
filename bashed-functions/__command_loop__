@@ -1,0 +1,141 @@
+#!/bin/bash
+
+function __command_loop__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    if (( ${#__watches__[@]} > 0 )); then
+        for var in "${__watches__[@]}"; do
+            if [[ -n "$var" ]]; then
+                __echo_variable__ "$var" "$@"
+            fi
+        done
+    fi > /dev/tty
+
+    while command read -n1 -p "[m$__colour__$__dbname__>$__reset__ "; do
+        case $REPLY in
+            h|\?)
+                command echo
+                command echo "Available commands:
+a        Show original and current argv
+B        set or clear a break condition
+b        set breakpoints on lines
+c        clear breakpoints
+E/P      echo (print) all variables
+e/p      echo (print) a variable
+ie/ip    interactively echo/print variables in a loop until a blank line is entered
+L        list the whole script being debugged
+l        list a window of lines around the current line
+r        run at full speed until the next breakpoint and/or break condition is hit
+n/s      execute next single statement
+S        set the number of statements to run before next stop
+t        print a stack trace
+w        add a watch
+W        clear a watch
+m        monitor invocation of a program or script
+u        unmonitor a previously monitored program or script
+v        evaluate a statement
+iv       interactively evaluate expressions in a loop until a blank line is entered
+!        execute a single command in a subshell
+$        start a subshell
+q        quit"
+                ;;
+            a)
+                command echo
+                command echo "startup, count ${#__initial_argv__[@]}:"
+                command echo "  argv[0]=$__target__"
+                local i=1
+                for arg in "${__initial_argv__[@]}"; do
+                    command echo "  argv[$i]='${arg}'"
+                    ((i++))
+                done
+
+                command echo "current, count $# (${FUNCNAME[2]}):"
+
+                command echo "  argv[0]=$__target__"
+                local i=1
+                for arg; do
+                    command echo "  argv[$i]='${arg}'"
+                    ((i++))
+                done ;;
+            B)
+                command echo
+                __set_break_condition__ ;;
+            b)
+                command echo
+                __set_line_breakpoints__ ;;
+            c)
+                command echo
+                __clear_line_breakpoints__ ;;
+            L)
+                command echo
+                __show_lines__ 1 ${#__lines__[@]} ;;
+            l)
+                command echo
+                __show_lines__ $(( __curline__ - 10 )) $(( __curline__ + 10 )) ;;
+            r)
+                command echo
+                __steps__=-1
+                command break ;;
+            q)
+                __want_to_exit__=1
+                __save_environment__ $__debug_out__
+                command exit ;;
+            n|s)
+                command echo
+                __steps__=1
+                command break ;;
+            S)
+                command echo
+                __set_steps__ ;;
+            t)
+                command echo
+                local i="${#__lines__[@]}"
+                local width="${#i}"
+                for (( i = 2; i < ${#FUNCNAME[@]}; i++ )); do
+                    local line
+                    (( line = ${BASH_LINENO[i-1]} - $__offset__ ))
+                    line=$(printf "%-${width}d" $line)
+                    command echo "$__target__:$line ${FUNCNAME[$i]}: ${__lines__[$line]}"
+                done
+                ;;
+            m)  
+                command echo
+                __monitor__ ;;
+            u)
+                command echo
+                __unmonitor__ ;;
+            w)
+                command echo
+                __set_watch__ ;;
+            W)
+                command echo
+                __clear_watch__ ;;
+            v)
+                command echo
+                __evaluate__ "$@" ;;
+            E|P)
+                command echo
+                __echo_all_variables__ $REPLY ;;
+            e|p)
+                __echo_variable__ "$REPLY" "$@" ;;
+            i)
+                read -n1 -p "nteractively loop> "
+                case $REPLY in
+                    e|p)      __echo_variables_loop__ "$REPLY" "$@" ;;
+                    v)        command echo
+                              __evaluate_loop__ "$@" ;;
+                    *)        command echo
+                              command echo "I only understand 'e' (echo), 'p' (print) or 'v' (evaluate)" ;;
+                esac ;;
+            !)
+                command echo
+                __shell_execute__ ;;
+            $)
+                command echo
+                command echo "Creating sub-shell, type 'exit' to return here"
+                ( bash ) ;;
+            ?)
+                command echo ": unknown, 'h' or '?' for help" ;;
+        esac
+    done
+}

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+function __calculate_curline__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+    if [[ -n "$__offset__" ]]; then
+        (( __curline__ = $1 - $__offset__ ))
+    fi
+}

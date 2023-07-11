@@ -1,0 +1,26 @@
+#!/bin/bash
+
+function __unmonitor__() {
+    
+    if (( ${#__monitor_list__[@]} == 0 )); then
+        command echo "No monitored items to unmonitor"
+        return
+    fi
+
+    local item
+    local PS3="item to unmonitor "
+    select item in "${__monitor_list__[@]}"; do
+        if [[ -z "$REPLY" || -z "$item" ]]; then
+            return
+        fi
+        echo "Unmonitoring $item"
+        __monitor_list__=( "${__monitor_list__[@]/$item}" )
+        command unset -f $REPLY
+    done
+
+    if (( ${#__monitor_list__[@]} == 0 )); then
+        command echo "No monitored items"
+    else
+        command echo "Monitored items ${__monitor_list__[@]}"
+    fi
+}

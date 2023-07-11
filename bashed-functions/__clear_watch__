@@ -1,0 +1,26 @@
+#!/bin/bash
+
+function __clear_watch__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    if (( ${#__watches__[@]} == 0 )); then
+        command echo "No watches to clear"
+        command return
+    fi
+
+    local i
+    while :
+    do
+        for (( i = 0; i < ${#__watches__[i]}; i++ )); do
+            command echo "$(( i + 1 )):  ${__watches__[i]}"
+        done
+
+        command read -ep "Watch to delete: " i
+        if (( i > 0 && i <= ${#__watches__[@]} )); then
+            __watches__[i-1]=
+            __watches__=( ${__watches__[@]} )
+        else
+            command break
+        fi
+    done
+}

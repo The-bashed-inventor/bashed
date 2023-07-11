@@ -1,0 +1,182 @@
+#!/bin/bash
+
+error=0
+verbose=0
+always_run=0
+preserve=1
+basename=${0##*/}
+dirname=${0%/*}
+ignore_interrupt=0
+
+functions_directory=$0-functions
+if [[ -L $0 ]]; then
+    functions_directory=$(readlink $0)-functions
+fi
+
+if [[ ! -d $functions_directory ]]; then
+    echo "Cannot find directory $functions_directory which should contain the $basename debugging functions"
+    echo "I found $basename here: $0"
+    echo "Please check your installation of $basename"
+    exit 120
+fi
+
+while getopts ':pai-:' arg "$@"; do
+  case $arg in
+    -)  case "$OPTARG" in
+           always)
+               always_run=1 ;;
+           debug)
+               verbose=1 ;;
+           ignore_interrupt)
+                ignore_interrupt=1 ;;
+           preserve)
+                preserve=0 ;;
+           *)
+                echo "$basename: Unrecognised flag --$OPTARG" 
+                error=1 ;;
+        esac ;;
+    a)  always_run=1 ;;
+    i)  ignore_interrupt=1 ;;
+    p)  preserve=0 ;;
+    ?)  echo "$basename: Unrecognised flag -$OPTARG" 
+        error=1 ;;
+  esac
+done
+
+shift $(( OPTIND - 1 ))
+
+if (( error || $# == 0 )); then
+    echo "Bash debugger version 0.1"
+    echo
+    echo "Usage: $basename [-a] [-i] bash-script [bash-script-args [more-bash-script-args]]"
+    echo "-a, --always"
+    echo "        Debug target anyway, even though it appears to have syntax errors."
+    echo "-i, --ignore_interrupt"
+    echo "        Ignore interrupts (not a good idea)"
+    exit 1
+fi
+
+target="$1"
+shift
+
+for file in $functions_directory/*; do
+    if ! bash -n $file; then
+        echo "Sorry, the $basename file $file contains syntax errors, please fix and restart."
+        errors=1
+    fi
+done
+
+(( errors )) && exit 9
+
+if [[ ! -f $target ]]; then
+    echo "$basename: $target: No such file"
+    exit 2
+fi
+
+if (( $(tail -c1 "$target" | wc -l) == 0 )); then
+    echo "$basename: $target: File does not end in a newline (sorry, but it's important)"
+    exit 3
+fi
+
+# Figure out what pager to use, because not all environments have "less", or even "more".
+# If this is the case, fall back to "cat"
+#
+pager=cat
+if type -p less > /dev/null; then
+    pager=less
+elif type -p more > /dev/null; then
+    pager=more
+fi
+
+echo "Bash debugger version 0.1.  Type 'h' or '?' for help."
+
+if (( always_run == 0 )) && ! bash -n $target; then
+    echo "$basename: $target has syntax errors.  Please fix these before running the debugger, or use the -a (\"always run\") flag.."
+    exit 3
+fi
+
+version=${BASH_VERSION%%.*}
+if (( $# == 0 )); then
+    echo "Debugging $target (with bash $version) and no args"
+else
+    if (( version >= 4 )); then
+        echo "Debugging $target (with bash $version) and args: ${@@Q}"
+    else
+        echo "Debugging $target (with bash $version) and args: $@"
+    fi
+fi
+echo
+
+# Cope with the autoload directive by expaning out autoloaded functions
+#
+if grep -q autoload "$target"; then
+    if type expand > /dev/null; then
+        new_target=$HOME/.$basename.$(basename "$target")-e.$$
+        expand "$target" > $new_target
+        target=$new_target
+    else
+        echo "$basename: $target: Sorry, can't cope with autoload, without expand"
+        exit 10
+    fi
+fi
+
+# Note: place debugging file in users home directory, as opposed to /tmp just in case we're debugging something sensitive
+#       and/or the person debugging the script doesn't want their colleagues laughing at them in a multiuser environment
+#
+debugfile=$HOME/.$basename.$(basename "$target").$$
+debug_out=$HOME/.$basename.out.$(basename "$target").$$
+
+cat <<BASH_DB_EOF > $debugfile
+#!/bin/bash
+
+######### START BASH DEBUGGER PREAMBLE ##################
+__dbname__=$basename; __target__=$target; __debug_out__=$debug_out; __initial_argv__=("\$@"); __pager__=$pager
+while read; do __lines__[++__i__]="\$REPLY"; done < \$__target__; for file in $functions_directory/*; do source \$file; done; unset file; __initialise__ $debug_out
+shopt -s extdebug; command trap '__step_trap__ \$LINENO "\$@"' DEBUG; command trap '__post_mortem_debugging__ \$__debug_out__ "\$@"' 0 1 2 3
+(( __offset__ = \$LINENO + 1 ))
+#########  END BASH DEBUGGER PREAMBLE  ##################
+BASH_DB_EOF
+
+cat $target >> $debugfile
+chmod +x $debugfile
+
+if (( $preserve )); then
+    if (( ignore_interrupt )); then
+        trap ":" 2
+        trap 'rm -f $debugfile $debug_out;exit' 0 1 3
+    else
+        trap 'rm -f $debugfile $debug_out;exit' 0 1 2 3
+    fi
+fi
+
+while :
+do
+    if (( verbose )); then
+        read -n1 -p "'e' to EDIT, 'p' to page, anything else to skip" < /dev/tty
+        echo
+        case $REPLY in
+            [Ee])        ${EDITOR:-vi} "$debugfile" ;;
+            [Pp])        less "$debugfile" ;;
+        esac
+    fi
+
+    if [[ ! -f "$debugfile" ]]; then
+        echo "Someone removed the debug target $debugfile"
+        break
+    fi
+
+    $debugfile "$@"
+    if [[ -f "$debug_out" ]]; then
+
+        if (( verbose )); then
+            echo "Variables transferred into next debugger cycle:"
+            cat $debug_out
+        fi
+        source "$debug_out" > /dev/null 2>&1
+        (( __want_to_exit__ )) && break
+
+        set -- "${__initial_argv__[@]}"
+    else
+        (( verbose )) && echo "WARNING: $debug_out not found: No variables to transfer into next debugger cycle"
+    fi
+done

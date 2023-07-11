@@ -1,0 +1,25 @@
+#!/bin/bash
+
+function __shell_execute__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+    local cmd
+    command read -ep "Command: " cmd
+
+    if [[ -n "$cmd" ]]; then
+        command history -s "$cmd"
+        local execute=1
+        if ! bash -n <<< "$cmd" 2> /dev/null; then
+            command echo "That doesn't seem to be syntactically valid, are you sure? "
+            command read -n1
+            case $REPLY in
+                Y|y)     command echo "es" ;;
+                  *)     execute=0 ;;
+            esac
+        fi
+        if (( execute )); then
+            ( command bash -c "$cmd" )
+            echo "Exit status: $?"
+        fi
+        command history -w ~/.bash_debugger
+    fi
+}

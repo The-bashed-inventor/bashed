@@ -1,0 +1,22 @@
+#!/bin/bash
+
+function __list_all__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+    command shopt -u extglob
+
+    local i=1 bp=" " cl=" "
+    local len=${#__lines__[@]}
+    
+    while (( i <= ${#__lines__[@]} )); do
+        bp=" "
+        cl=" "
+        if [[ -n "${__line_breakpoints__[i]}" ]]; then
+            cl="*"
+        fi
+        if (( __curline__ == i )); then
+            bp=">"
+        fi
+        command printf "%-${#len}d $bp$cp    %s\n" $i "${__lines__[i]}"
+        (( i++ ))
+    done | command $__pager__
+}

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+function __eval__() {
+
+    local command="$1"
+    shift
+
+    if ! command bash -n <<< "$command" 2> /dev/null; then
+        command echo "That doesn't seem to be syntactically valid, are you sure? "
+        local sure
+        command read -n1 sure
+        case $sure in
+            Y|y)     command echo "es"
+                     ;;
+            N|n)     command echo "o"
+                     command return
+                     ;;
+              *)     command echo "    no"
+                     command return
+                     ;;
+        esac
+    fi
+
+    command eval "$command"
+    local e=$?
+    if (( e == 0 )); then
+        command echo "Exit status $e (success/true)"
+    else
+        command echo "Exit status $e (failed/false)"
+    fi
+
+    command history -s "$command"
+    command history -w ~/.bash_debugger
+}
+
+function __evaluate__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command read -ep "Evaluate: "
+
+    [[ -z "$REPLY" ]] && command return
+
+    __eval__ "$REPLY" "$@"
+}
+
+function __evaluate_loop__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    while :
+    do
+        command read -ep "evaluate: "
+        if [[ -z "$REPLY" ]]; then
+            command return
+        fi
+        command history -s "$REPLY"
+        __eval__ "$REPLY" "$@"
+    done
+    command history -w ~/.bash_debugger
+}

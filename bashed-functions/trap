@@ -1,0 +1,7 @@
+#!/bin/bash
+
+function trap() {
+    shopt -u extdebug; command trap "shopt -s extdebug" RETURN
+
+    command echo "Sorry, trap is disabled within $__dbname__: $@"
+}

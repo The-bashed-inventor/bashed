@@ -1,0 +1,31 @@
+#!/bin/bash
+
+function __step_trap__() {
+    shopt -u extdebug
+    local state=$(command set -- $(command shopt extglob); flag="-u"; [[ $2 == "on" ]] && flag="-s"; command echo $flag)
+    shopt -s extglob
+    command trap "command shopt -s extdebug; command shopt $state extglob" RETURN
+
+    __calculate_curline__ $1
+    command shift
+
+    if (( __curline__ > 0 )); then
+        if (( __steps__ > 0 )); then
+            (( __steps__-- ))
+        fi
+
+        local __func__=${FUNCNAME[${#FUNCNAME[@]}-1]}
+        local __line__=${__lines__[__curline__]/#+( )/}
+        if [[ -n ${__line_breakpoints__[__curline__]} ]]; then
+            command echo "${__colour__}Hit breakpoint at$__reset__ $__func__:$__curline__: $__line__"
+            __command_loop__ "$@"
+        elif [[ -n "$__break_condition__" ]] && eval $__break_condition__ > /dev/null; then
+            command echo "${__colour__}Breakpoint condition $__break_condition__ true at$__reset__ $__func__:$__curline__: $__line__"
+            __command_loop__ "$@"
+        elif (( __steps__ == 0 )); then
+            command echo "${__colour__}Stopped at$__reset__ $__func__:$__curline__: $__line__"
+            __command_loop__ "$@"
+        fi
+
+    fi > /dev/tty < /dev/tty
+}

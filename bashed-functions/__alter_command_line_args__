@@ -1,0 +1,22 @@
+#!/bin/bash
+
+function __alter_command_line_args__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command echo "Initial argv: ${__initial_argv__[@]@Q}"
+
+    command read -ep "New argv (use quotes, if necessary): "
+    command history -s "$REPLY"
+    command history -w ~/.bash_debugger
+
+    command eval set -- $REPLY
+
+    __change_argv__=1
+    __initial_argv__=( "$@" )
+
+    if (( ${#__initial_argv__[@]} == 0 )); then
+        command echo "Cleared arguments"
+    else
+        command echo "Set new argv to: ${__initial_argv__[@]@Q}"
+    fi
+}

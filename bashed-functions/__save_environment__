@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Save everything useful that the user may have changed in this debugging cycle, so
+# our parent (bdb itself) can pass those things into the next debugging cycle
+#
+function __save_environment__() {
+
+    # IMPORTANT: We don't manipulate extdebug here because this function is called
+    # from the post mortem debugging function, which has already disabled trace
+    # level debugging.  Should you want to call this function from elsewhere, this
+    # will be a problem.
+    #
+    {
+        command echo "__want_to_exit__=$__want_to_exit__"
+        command echo "__break_condition__=$__break_condition__"
+        command echo "__exit_status__=$__exit_status__"
+        command echo "__change_argv__=$__change_argv__"
+        command echo "__line_breakpoints__=( ${__line_breakpoints__[@]} )"
+        command echo "__watches__=( ${__watches__[@]} )"
+        command echo "__monitor_list__=( ${__monitor_list__[@]} )"
+
+        # It might look extremely pointless to pass across the initial arguments -
+        # after all bdb knows what these are.  However, the user can modify the
+        # command line arguments so these (and not the original ones) will be used
+        # in the next debugging cycle..
+        # Note also that we need this loop so we don't screw up when one (or more)
+        # of the arguments contains a space.
+        #
+        i=0
+        for arg in "${__initial_argv__[@]}"; do
+            command echo "__initial_argv__[$i]=\"$arg\""
+            (( i++ ))
+        done
+    } > $1
+}

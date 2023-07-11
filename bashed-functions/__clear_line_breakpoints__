@@ -1,0 +1,34 @@
+#!/bin/bash
+
+function __clear_line_breakpoints__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    if (( ${#__line_breakpoints__[@]} == 0 )); then
+        command echo "No line breakpoints to clear"
+        command return
+    fi
+
+    command echo "Line breakpoints: ${__line_breakpoints__[@]}"
+
+    command read -ep "Clear breakpoints: "
+
+    local i
+    for i in $REPLY; do
+        if (( i > 0 )); then
+            if (( i > ${#__lines__[@]} )); then
+                command echo "$i: there are only ${#__lines__[@]} lines the file"
+            elif [[ -z "${__line_breakpoints__[i]}" ]]; then
+                command echo "No breakpoint was set at line $i"
+            else
+                __line_breakpoints__[i]=
+                command echo "Breakpoint removed from line $i"
+            fi
+        fi
+    done
+
+    if (( ${#__line_breakpoints__[@]} == 0 )); then
+        command echo "No line breakpoints"
+    else
+        command echo "Line breakpoints on lines: ${__line_breakpoints__[@]}"
+    fi
+}

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+function __set_watch__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command read -ep "Watch: "
+    if [[ -n "$REPLY" ]]; then
+        __watches__=( "${__watches__[@]}" "$REPLY" )
+        command history -s "$REPLY"
+        command history -w ~/.bash_debugger
+    fi
+
+    for w in "${__watches__[@]}"; do
+        command echo "watch $w"
+    done
+}

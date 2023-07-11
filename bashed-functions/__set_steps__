@@ -1,0 +1,12 @@
+#!/bin/bash
+
+function __set_steps__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command read -ep "step count "
+    if (( $REPLY > 0 )); then
+        __steps__=$REPLY
+    else
+        command echo "$REPLY: Invalid number of steps (must be an integer greater than zero)"
+    fi
+}

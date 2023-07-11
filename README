@@ -1,0 +1,28 @@
+Welcome to "bashed", the bash script debugger.
+
+There is no install script, but installation is trivial.
+1. Copy the tar file to /tmp/ on your machine.
+   You probably already have a directory where you install stuff, e.g. $HOME/installed
+   Create a new "bashed" subdirectory there:
+   mkdir $HOME/installed/bashed
+
+2. Expand the tar file into this directory with:
+   cd $HOME/installed/bashed
+   tar xvf /tmp/bashed.tar
+
+3. Create a symbolic link to the "bashed" script from your favourite bin directory:
+   cd $HOME/bin
+   ln -s $HOME/installed/bashed/bashed bashed
+
+4. There is an example script to debug in example.sh
+   cd $HOME/install/bashed
+   bashed example.sh
+
+   You should see this:
+
+   Bash debugger version 0.1.  Type 'h' or '?' for help.
+   Debugging example.sh (with bash 3) and no args
+
+   Stopped at main:3: echo "Simple script for debugging purposes"
+   bashed> 
+

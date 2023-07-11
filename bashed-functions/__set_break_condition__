@@ -1,0 +1,40 @@
+#!/bin/bash
+
+function __set_break_condition__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    local prompt
+    if [[ -z "$__break_condition__" ]]; then
+        command echo "No break condition set"
+        prompt="set break condition"
+    else
+        command echo "Break condition: $__break_condition__"
+        prompt="change break condition"
+    fi
+    command read -ep "$prompt "
+    if [[ -n "$REPLY" ]]; then
+        if ! command bash -n <<< "$REPLY" 2> /dev/null; then
+            command echo "That doesn't seem to be syntactically valid, are you sure? "
+            local resp
+            command read -n1 resp
+            case $REPLY in
+                Y|y)     command echo "es"; __break_condition__=$REPLY ;;
+                  *)     command echo ;;
+            esac
+        else
+            __break_condition__=$REPLY
+        fi
+        command history -s "$REPLY"
+        command history -w ~/.bash_debugger
+    else
+        if [[ -n "$__break_condition__" ]]; then
+            command read -n1 "Clear break condition? "
+            case $REPLY in
+                Y|y)     command echo "es"
+                         __break_condition__= ;;
+                *)       command echo ;;
+            esac
+        fi
+    fi
+}
+

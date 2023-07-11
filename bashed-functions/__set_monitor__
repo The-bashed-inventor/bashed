@@ -1,0 +1,108 @@
+#!/bin/bash
+
+function __monitor__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    local target
+    if (( ${#__monitor_list__[@]} > 0 )); then
+        command echo "Currently monitoring calls to:"
+        for target in "${__monitor_list__[@]}"; do
+            command echo "$target"
+        done
+    fi
+
+    command read -ep "New things to monitor: "
+    for item in $REPLY; do
+        __monitor_item__ "$item"
+    done
+}
+
+function __monitor_item__() {
+    local is_script=0
+    local target=$1
+
+    if [[ $target == */* ]]; then
+        command echo "Sorry, can only monitor things which are on the PATH, not things in other directories"
+        command continue
+    fi
+    local type=$(command type -t $target)
+    local path=$(command type -p $target)
+    case $type in
+        file)      local long_type=$(command file $path)
+                   case $long_type in
+                     *Bourne\-Again\ shell\ script*)
+                            command echo "Monitoring calls to bash script \"$target\""
+                            is_script=1
+                            ;;
+                     *POSIX\ shell\ script*)
+                            command echo "Monitoring calls to shell script \"$target\""
+                            is_script=1
+                            ;;
+                     *)
+                            command echo "Monitoring calls to \"$target\""
+                            other_list=( "${other_list[@]}" $target ) ;;
+                   esac ;;
+        ?*)        command echo "$target has type $type and cannot be monitored"
+                   return ;;
+        *)         command echo "Sorry, $target must be on your PATH and be executable"
+                   return ;;
+    esac
+
+    if (( is_script )); then
+        command eval function $target '() {
+            command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+            {
+                command echo "MONITOR:"
+                for (( i = 1; i < ${#FUNCNAME[@]}; i++ )); do
+                    local line
+                    (( line = ${BASH_LINENO[$i-1]} - $__offset__ ))
+                    command echo "$__target__:$line ${FUNCNAME[$i]}: ${__lines__[$line]}"
+                done
+                command echo
+                if (( ${BASH_VERSION%%.*} >= 4 )); then
+                    command echo "About to invoke script '$target' ${@@Q}"
+                else
+                    command echo "About to invoke script '$target' $@"
+                fi
+                command echo "Press d to debug with $__dbname__, i to ignore invocation, or any other key to execute "
+                command read -n1 -s
+                case $REPLY in
+                    d|D)    command echo "target is '$target'"
+                            ( command $__dbname__ '$path' "$@" ) ;;
+                    i|I)    ;;
+                    *)      command '$target' "$@" ;;
+                esac
+            } > /dev/tty < /dev/tty
+        }'
+    else
+        command eval function $target '() {  
+            command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+            {
+                local status=0
+                command echo "MONITOR:"
+                for (( i = 1; i < ${#FUNCNAME[@]}; i++ )); do
+                    local line
+                    (( line = ${BASH_LINENO[$i-1]} - $__offset__ ))
+                    command echo "$__target__:$line ${FUNCNAME[$i]}: ${__lines__[$line]}"
+                done
+                command echo
+                if (( ${BASH_VERSION%%.*} >= 4 )); then
+                    command echo "About to run '$target' ${@@Q}"
+                else
+                    command echo "About to run '$target' $@"
+                fi
+                command echo "Ignore invocation of '$target' by typing \"i\", or any other key to execute '$target'"
+                command read -n1 -s
+                case $REPLY in
+                   I|i)    ;;
+                   *)      command '$target' "$@"
+                           status=$?
+                           command echo "Exit status $status" ;;
+                esac
+                command return $status
+            } > /dev/tty < /dev/tty
+        }'
+    fi
+
+    __monitor_list__=( "${__monitor_list__[@]}" "$target" )
+}

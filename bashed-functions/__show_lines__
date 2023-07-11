@@ -1,0 +1,44 @@
+#!/bin/bash
+
+function __show_lines__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    local from_line=$1
+    local to_line=$2
+    local len=${#__lines__[@]}
+    local flag=
+
+    # Show all the lines and want to scroll up and down?
+    # Pass a third parameter.
+    #
+    if [[ $__pager__ = less ]] && (( $# <= 2 )); then
+        flag=-E
+    fi
+
+    if (( from_line >= $len )); then
+        (( from_line = $len - 10 ))
+        to_line=$len
+    else
+        if (( from_line <= 0 )); then
+            from_line=1
+            to_line=10
+        fi
+        if (( to_line >= $len )); then
+            to_line=$len
+        fi
+    fi
+
+    local i bp cl
+    
+    for (( i = $from_line; i <= $to_line; i++ )); do
+        bp=" "
+        cl=" "
+        if [[ -n "${__line_breakpoints__[i]}" ]]; then
+            bp="*"
+        fi
+        if (( __curline__ == i )); then
+            cl=">"
+        fi
+        command printf "%-${#len}d $bp$cl    %s\n" $i "${__lines__[i]}"
+    done | command $__pager__ $flag
+}

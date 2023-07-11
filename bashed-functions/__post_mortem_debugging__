@@ -1,0 +1,84 @@
+#!/bin/bash
+
+function __post_mortem_debugging__() {
+    __exit_status__=$?; shopt -u extdebug; command trap "shopt -s extdebug" RETURN
+
+    command trap ':' DEBUG
+
+    command echo "[m" > /dev/tty
+    command echo > /dev/tty
+
+    local output=$1
+    shift
+    if (( __want_to_exit__ )); then
+        __save_environment__ $output
+        return $__exit_status__
+    fi
+
+    command echo "$__target__ terminated, exit status $__exit_status__" > /dev/tty
+    command echo "Post Mortem debugging mode:" > /dev/tty
+
+    while command read -n1 -p "$__colour__$__dbname__ pm>$__reset__ "; do
+        case $REPLY in
+            h|\?)
+                echo
+                echo "Available commands in Post Mortem debugging mode:
+E/P      echo (print) all variables
+e/p      echo (print) a variable
+ie/ip    interactively echo/print variables in a loop until a blank line is entered
+L        list the script being debugged
+r        restart script from start
+v        evaluate something
+!        execute a command in a subshell
+$        start a subshell
+q        quit"
+                ;;
+            l|L)
+                command echo
+                command nl -ba $__target__ | command $__pager__ ;;
+            r)
+                command echo
+                __want_to_exit__=0
+                __save_environment__ $__debug_out__
+                command break ;;
+            q)
+                command echo
+                __want_to_exit__=1
+                __save_environment__ $__debug_out__
+                command break ;;
+            v)
+                command echo
+                __evaluate__ ;;
+            E|P)
+                command echo
+                __echo_all_variables__ $REPLY ;;
+            e|p)
+                __echo_variable__ "$REPLY" "$@" ;;
+            i)
+                read -n1 -p "nteractively loop> "
+                case $REPLY in
+                    e|p)      __echo_variables_loop__ "$REPLY" "$@" ;;
+                    v)        command echo
+                              __evaluate_loop__ "$@" ;;
+                    *)        command echo
+                              command echo "I only understand 'e' (echo), 'p' (print) or 'v' (evaluate)" ;;
+                esac ;;
+            a)
+                command echo
+                __alter_command_line_args__ ;;
+            !)
+                command echo
+                __shell_execute__ ;;
+            $)
+                command echo
+                command echo "Creating sub-shell, type exit to come back to $__dbname__"
+                ( bash ) ;;
+            ?)
+                command echo ": Unknown, 'h' or '?' for help" ;;
+        esac
+    done < /dev/tty > /dev/tty
+
+    __save_environment__ $output
+
+    command return $exit_status
+}

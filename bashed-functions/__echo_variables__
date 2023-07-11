@@ -1,0 +1,143 @@
+#!/bin/bash
+
+function __echo__() {
+    local ex=$?
+    local var="$1"
+
+    command shift
+
+    case "$var" in
+         \$0)  command echo "\$0=$__target__" ;;
+     \$[1-9])  var="${var##$}"
+               local x
+               if (( ${BASH_VERSION%%.*} >= 4 )); then
+                   x=$(eval echo "\${$var@Q}")
+               else
+                   x=$(eval echo "\${$var}")
+               fi
+               command echo "\$$var=$x"
+               ;;
+         \$#)  command echo "$var=$#" ;;
+        \$\*)  if (( ${BASH_VERSION%%.*} >= 4 )); then
+                   command echo "$var=${*@Q}" 
+               else
+                   command echo "$var=$*" 
+               fi
+               ;;
+         \$@)  if (( ${BASH_VERSION%%.*} >= 4 )); then
+                   command echo "$var=${@@Q}"
+               else
+                   command echo "$var=$@"
+               fi
+               ;;
+        \$\$)  command echo "$var=$$" ;;
+         \$!)  command echo "$var=$!" ;;
+        \$\?)  command echo "$var=$ex" ;;
+     \$*\[\])  var="${var##$}"
+               var="${var%%[]}"
+               for key in $(command eval command echo '${!'$var'[@]}'); do
+                   command eval command echo "$var"'['"$key"']=${'"$var"'['"$key"']}'
+               done
+               ;;
+ \$\{*\[\]\})  var="${var##$\{}"
+               var="${var%%\[\]\}}"
+               for key in $(command eval command echo '${!'$var'[@]}'); do
+                   command eval command echo "$var"'['"$key"']=${'"$var"'['"$key"']}'
+               done
+               ;;
+\$\{*\[*\]\})  command echo "$var=$(eval command echo "$var")" ;;
+    \$*\[*\])  var="${var##$}"
+               command eval command echo "$var=\$\{$var\}" ;;
+         \$*)  command set | command grep "^${var##$}=" ;;
+   \{*\[\]\})  var="${var%%[]\}}"
+               var="${var##\{}"
+               for key in $(command eval command echo '${!'$var'[@]}'); do
+                   command eval command echo "$var"'['"$key"']=${'"$var"'['"$key"']}'
+               done
+               ;;
+       *\[\])  var="${var%%[]}"
+               for key in $(command eval command echo '${!'$var'[@]}'); do
+                   command eval command echo "$var"'['"$key"']=${'"$var"'['"$key"']}'
+               done
+               ;;
+  \{*\[*\]\})  command eval command echo "$var=\$$var" ;;
+      *\[*\])  command eval command echo "$var=\${$var}" ;;
+           0)  command echo "\$0=$__target__" ;;
+       [1-9])  local x
+               if (( ${BASH_VERSION%%.*} >= 4 )); then
+                   x=$(eval command echo "\${$var@Q}")
+               else
+                   x=$(eval command echo "\${$var}")
+               fi
+               command echo "\$$var=$x"
+               ;;
+        \*|@)  if (( ${BASH_VERSION%%.*} >= 4 )); then
+                   command echo "\$$var=${@@Q}" 
+               else
+                   command echo "\$$var=$@" 
+               fi
+               ;;
+           *)  local x=$(set | grep "^$var=")
+               if [[ -z $x ]]; then
+                   command echo "$var="
+               else
+                   command echo "$x"
+               fi ;;
+     esac | command cat -v
+}
+
+
+function __echo_variable__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    local prompt=echo
+    case $1 in
+        e|E)    prompt="cho" ;;
+        p|P)    prompt="rint" ;;
+    esac
+    command read -ep "$prompt: "
+
+    # even though this is a local variable, we still don't want it polluting the namespace
+    #
+    command unset prompt
+
+    # get rid of the "e" or "p" that the user typed to bring us here
+    #
+    command shift
+
+    if [[ -z "$REPLY" ]]; then
+        command return
+    fi
+    command history -s "$REPLY"
+    for var in "$REPLY"; do
+        __echo__ "$var" "$@"
+    done
+
+    command history -w ~/.bash_debugger
+}
+
+
+function __echo_all_variables__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command set | command sed -n '/^__[A-Za-z0-9_]*__=/d;/^[A-Za-z0-9_]*=/p' | command $__pager__
+}
+
+
+function __echo_variables_loop__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    command echo
+    while :
+    do
+        command read -ep "echo: "
+        if [[ -z "$REPLY" ]]; then
+            command return
+        fi
+        command history -s "$REPLY"
+        for var in "$REPLY"; do
+            __echo__ $var "$@"
+        done
+    done
+    command history -w ~/.bash_debugger
+}

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# This function takes all our settings from the last debugging cycle and pushes
+# them into this debugging cycle.
+#
+# The single parameter is the name of the file containing the saved settings
+# from last time around.
+#
+function __initialise__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    if [[ -f "$1" ]]; then
+        command source "$1"
+    else
+        command return
+    fi
+
+    command set -- "${__line_breakpoints__[@]}"
+    __line_breakpoints__=()
+    local i
+    for i; do
+        __line_breakpoints__[$i]=$i
+    done
+
+    command set -- "${__monitor_list__[@]}"
+    for i; do
+        __monitor_item__ "$i"
+    done
+
+    command export HISTSIZE=500
+    command history -r ~/.bash_debugger
+}

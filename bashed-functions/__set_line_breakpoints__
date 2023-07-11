@@ -1,0 +1,27 @@
+#!/bin/bash
+
+function __set_line_breakpoints__() {
+    command shopt -u extdebug; command trap "command shopt -s extdebug" RETURN
+
+    if (( ${#__line_breakpoints__[@]} == 0 )); then
+        command echo "No line breakpoints set"
+    else
+        command echo "Line breakpoints: ${__line_breakpoints__[@]}"
+    fi
+
+    command read -ep "breakpoints: "
+    local i
+    for i in $REPLY; do
+        if (( i > 0 )); then
+            if (( i > ${#__lines__[@]} )); then
+                command echo "Out of range (only ${#__lines__[@]} lines in file)"
+            elif [[ -z "${__lines__[i]}" ]]; then
+                command echo "Line ${__lines__[i]} has no executable code"
+            else
+                __line_breakpoints__[$i]=$i
+                command echo "Breakpoint set at line $i"
+            fi
+        fi
+    done
+}
+
